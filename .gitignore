@@ -1,0 +1,8 @@
+node_modules/
+backend-api/node_modules/
+frontend-ui/node_modules/
+frontend-ui/dist/
+.env
+backend-api/.env
+*.log
+.DS_Store
