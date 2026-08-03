@@ -11,7 +11,7 @@ const pool = new Pool({
 // ==========================================
 // 1. LOG A NEW TRADE (Protected Route)
 // ==========================================
-router.post('/', auth, async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   const { symbol, action, quantity, price, notes } = req.body;
 
   // Simple validation
@@ -58,7 +58,7 @@ router.get('/', auth, async (req, res) => {
 // ==========================================
 // 3. UPGRADED PERFORMANCE & HOLDINGS ENGINE
 // ==========================================
-router.get('/analytics', auth, async (req, res) => {
+router.get('/analytics', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
 
