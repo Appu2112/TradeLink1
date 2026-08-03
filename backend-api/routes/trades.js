@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
-const auth = require('../middleware/authMiddleware'); // Import our security guard!
+const authMiddleware = require('../middleware/authmiddleware'); // Import our security guard!
 
 // Setup Postgres connection pool
 const pool = new Pool({
