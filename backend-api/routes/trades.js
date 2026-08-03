@@ -41,7 +41,7 @@ router.post('/', authMiddleware, async (req, res) => {
 // ==========================================
 // 2. GET ALL TRADES FOR LOGGED-IN USER (Protected Route)
 // ==========================================
-router.get('/', auth, async (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
   try {
     // We only fetch trades where user_id matches the logged-in user!
     const userTrades = await pool.query(
