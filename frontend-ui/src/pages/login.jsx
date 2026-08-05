@@ -15,10 +15,13 @@ function Login({ onLoginSuccess }) {
 
     try {
       // Send login request to our Express backend!
-      const response = await axios.post('http://localhost:5000/api/auth/login', {
-        email,
-        password,
-      });
+      // Replace line 14 with this:
+const API_URL = import.meta.env.VITE_API_URL || 'https://tradelink1-43ev.onrender.com';
+
+const response = await axios.post(`${API_URL}/api/auth/login`, {
+  email,
+  password,
+});
 
       // Save the JWT token to the browser's local storage
       localStorage.setItem('token', response.data.token);
