@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { TrendingUp, Lock, Mail, Loader2 } from 'lucide-react';
 
-function Login({ onLoginSuccess }) {
+function Login({ onLoginSuccess, onSwitchToRegister }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -14,19 +14,17 @@ function Login({ onLoginSuccess }) {
     setLoading(true);
 
     try {
-      // Send login request to our Express backend!
-      // Replace line 14 with this:
-const API_URL = import.meta.env.VITE_API_URL || 'https://tradelink1-43ev.onrender.com';
+      const API_URL = import.meta.env.VITE_API_URL || 'https://tradelink1-43ev.onrender.com';
 
-const response = await axios.post(`${API_URL}/api/auth/login`, {
-  email,
-  password,
-});
+      const response = await axios.post(`${API_URL}/api/auth/login`, {
+        email,
+        password,
+      });
 
-      // Save the JWT token to the browser's local storage
+      // Save the JWT token to browser's local storage
       localStorage.setItem('token', response.data.token);
       
-      // Tell our App component that login was a success!
+      // Notify parent component on successful login
       onLoginSuccess();
     } catch (err) {
       setError(err.response?.data?.error || 'Something went wrong. Please try again.');
@@ -37,7 +35,7 @@ const response = await axios.post(`${API_URL}/api/auth/login`, {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-850 p-8 rounded-2xl shadow-xl space-y-6">
+      <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-xl space-y-6">
         
         {/* Logo Header */}
         <div className="text-center space-y-2">
@@ -99,11 +97,22 @@ const response = await axios.post(`${API_URL}/api/auth/login`, {
             )}
           </button>
         </form>
+
+        {/* Sign Up Navigation Toggle */}
+        <p className="text-center text-sm text-slate-400">
+          Don't have an account?{' '}
+          <button
+            type="button"
+            onClick={onSwitchToRegister}
+            className="text-emerald-400 hover:text-emerald-300 font-medium hover:underline focus:outline-none"
+          >
+            Sign Up
+          </button>
+        </p>
+
       </div>
     </div>
   );
 }
-<p>
-  Don't have an account? <Link to="/register">Sign Up</Link>
-</p>
+
 export default Login;

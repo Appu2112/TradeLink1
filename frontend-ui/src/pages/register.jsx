@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 
-function Register() {
+function Register({ onSwitchToLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
 
   const API_URL = import.meta.env.VITE_API_URL || 'https://tradelink1-43ev.onrender.com';
 
@@ -21,8 +19,8 @@ function Register() {
         email,
         password,
       });
-      // Redirect to login on successful registration
-      navigate('/login');
+      // Switch back to login page after successful registration
+      onSwitchToLogin();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create account');
     } finally {
@@ -71,7 +69,13 @@ function Register() {
         </form>
 
         <p style={{ marginTop: '1rem', textAlign: 'center', color: '#888' }}>
-          Already have an account? <Link to="/login" style={{ color: '#00c805' }}>Sign In</Link>
+          Already have an account?{' '}
+          <button
+            onClick={onSwitchToLogin}
+            style={{ background: 'none', border: 'none', color: '#00c805', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+          >
+            Sign In
+          </button>
         </p>
       </div>
     </div>
