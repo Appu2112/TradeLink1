@@ -1,36 +1,45 @@
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
-const authMiddleware = require('../middleware/authmiddleware'); // Import our security guard!
+const authMiddleware = require('../middleware/authmiddleware');
 
-// Setup Postgres connection pool
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
 // ==========================================
-// 1. LOG A NEW TRADE (Protected Route)
+// 1. LOG A NEW TRADE
 // ==========================================
 router.post('/', authMiddleware, async (req, res) => {
-  const { symbol, action, quantity, price, notes } = req.body;
+  const { symbol, ticker, quantity, shares, price, buy_price, sell_price, notes } = req.body;
 
-  // Simple validation
-  if (!symbol || !action || !quantity || !price) {
-    return res.status(400).json({ error: 'Please provide symbol, action, quantity, and price' });
+  // Support both key naming conventions
+  const tradeSymbol = (symbol || ticker || '').toUpperCase();
+  const tradeQty = quantity || shares;
+  const tradePrice = price || buy_price;
+  const tradeAction = sell_price ? 'SELL' : 'BUY';
+
+  // Validation
+  if (!tradeSymbol || !tradeQty || !tradePrice) {
+    return res.status(400).json({ error: 'Please provide symbol/ticker, quantity/shares, and price' });
   }
 
   try {
-    // req.user.id comes directly from our auth middleware verification!
     const newTrade = await pool.query(
       `INSERT INTO trades (user_id, symbol, action, quantity, price, notes) 
        VALUES ($1, $2, $3, $4, $5, $6) 
        RETURNING *`,
-      [req.user.id, symbol.toUpperCase(), action.toUpperCase(), quantity, price, notes]
+      [req.user.id, tradeSymbol, tradeAction, tradeQty, tradePrice, notes || null]
     );
 
+    // Standardize object fields sent back to frontend
+    const row = newTrade.rows[0];
     res.status(201).json({
-      message: 'Trade logged successfully!',
-      trade: newTrade.rows[0]
+      ...row,
+      ticker: row.symbol,
+      shares: row.quantity,
+      buy_price: row.price,
+      sell_price: sell_price || null
     });
   } catch (err) {
     console.error(err);
@@ -39,17 +48,25 @@ router.post('/', authMiddleware, async (req, res) => {
 });
 
 // ==========================================
-// 2. GET ALL TRADES FOR LOGGED-IN USER (Protected Route)
+// 2. GET ALL TRADES FOR LOGGED-IN USER
 // ==========================================
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    // We only fetch trades where user_id matches the logged-in user!
     const userTrades = await pool.query(
       'SELECT * FROM trades WHERE user_id = $1 ORDER BY created_at DESC',
       [req.user.id]
     );
 
-    res.json(userTrades.rows);
+    // Map database output so frontend components can read either property name safely
+    const formattedTrades = userTrades.rows.map(row => ({
+      ...row,
+      ticker: row.symbol,
+      shares: row.quantity,
+      buy_price: row.price,
+      sell_price: row.action === 'SELL' ? row.price : null
+    }));
+
+    res.json(formattedTrades);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error while fetching trades' });
@@ -57,14 +74,19 @@ router.get('/', authMiddleware, async (req, res) => {
 });
 
 // ==========================================
-// 3. EDIT / UPDATE A TRADE (Protected Route)
+// 3. EDIT / UPDATE A TRADE
 // ==========================================
 router.put('/:id', authMiddleware, async (req, res) => {
   const { id } = req.params;
-  const { symbol, action, quantity, price, notes } = req.body;
+  const { symbol, ticker, quantity, shares, price, buy_price, sell_price, notes } = req.body;
 
-  if (!symbol || !action || !quantity || !price) {
-    return res.status(400).json({ error: 'Please provide symbol, action, quantity, and price' });
+  const tradeSymbol = (symbol || ticker || '').toUpperCase();
+  const tradeQty = quantity || shares;
+  const tradePrice = price || buy_price;
+  const tradeAction = sell_price ? 'SELL' : 'BUY';
+
+  if (!tradeSymbol || !tradeQty || !tradePrice) {
+    return res.status(400).json({ error: 'Please provide symbol/ticker, quantity/shares, and price' });
   }
 
   try {
@@ -73,16 +95,20 @@ router.put('/:id', authMiddleware, async (req, res) => {
        SET symbol = $1, action = $2, quantity = $3, price = $4, notes = $5 
        WHERE id = $6 AND user_id = $7 
        RETURNING *`,
-      [symbol.toUpperCase(), action.toUpperCase(), quantity, price, notes, id, req.user.id]
+      [tradeSymbol, tradeAction, tradeQty, tradePrice, notes || null, id, req.user.id]
     );
 
     if (updatedTrade.rowCount === 0) {
       return res.status(404).json({ error: 'Trade not found or unauthorized' });
     }
 
+    const row = updatedTrade.rows[0];
     res.json({
-      message: 'Trade updated successfully!',
-      trade: updatedTrade.rows[0]
+      ...row,
+      ticker: row.symbol,
+      shares: row.quantity,
+      buy_price: row.price,
+      sell_price: sell_price || null
     });
   } catch (err) {
     console.error(err);
@@ -91,7 +117,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 });
 
 // ==========================================
-// 4. DELETE A TRADE (Protected Route)
+// 4. DELETE A TRADE
 // ==========================================
 router.delete('/:id', authMiddleware, async (req, res) => {
   const { id } = req.params;
@@ -114,31 +140,20 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 });
 
 // ==========================================
-// 5. UPGRADED PERFORMANCE & HOLDINGS ENGINE
+// 5. PERFORMANCE ANALYTICS
 // ==========================================
 router.get('/analytics', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id;
-
-    // 1. Fetch all trades for this user to calculate holdings
     const tradesQuery = await pool.query(
       'SELECT symbol, action, quantity, price FROM trades WHERE user_id = $1',
-      [userId]
+      [req.user.id]
     );
     
     const allTrades = tradesQuery.rows;
+    const livePrices = { 'BTC': 74500, 'ETH': 3650, 'NVDA': 142 };
 
-    // 2. MOCK LIVE MARKET PRICES (Simulating a live market data feed)
-    const livePrices = {
-      'BTC': 74500,  // Assume Bitcoin went up!
-      'ETH': 3650,   // Assume Ethereum moved up slightly
-      'NVDA': 142    // Assume Nvidia gained value
-    };
-
-    // 3. Process raw trades into net holdings
     const holdingsMap = {};
     let totalRealizedPL = 0;
-    let totalCapitalInvested = 0;
 
     allTrades.forEach(trade => {
       const { symbol, action, quantity, price } = trade;
@@ -152,21 +167,17 @@ router.get('/analytics', authMiddleware, async (req, res) => {
       if (action === 'BUY') {
         holdingsMap[symbol].quantity += qty;
         holdingsMap[symbol].totalCost += (qty * prc);
-        totalCapitalInvested += (qty * prc);
       } else if (action === 'SELL') {
-        // Realized P&L calculation based on selling price vs original cost estimation
         const averageCost = holdingsMap[symbol].quantity > 0 
           ? (holdingsMap[symbol].totalCost / holdingsMap[symbol].quantity) 
           : prc;
         
         holdingsMap[symbol].quantity -= qty;
         holdingsMap[symbol].totalCost -= (qty * averageCost);
-        
         totalRealizedPL += (qty * prc) - (qty * averageCost);
       }
     });
 
-    // 4. Calculate Unrealized P&L against our "live prices"
     let totalUnrealizedPL = 0;
     const portfolioBreakdown = [];
 
@@ -191,17 +202,15 @@ router.get('/analytics', authMiddleware, async (req, res) => {
       }
     });
 
-    // Send the detailed, intelligent report back to React
     res.json({
       totalTrades: allTrades.length,
       totalPL: parseFloat((totalRealizedPL + totalUnrealizedPL).toFixed(2)),
-      portfolio: portfolioBreakdown,
-      message: "Advanced live analytics computed!"
+      portfolio: portfolioBreakdown
     });
     
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Server error while calculating advanced analytics' });
+    res.status(500).json({ error: 'Server error while calculating analytics' });
   }
 });
 
