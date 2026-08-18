@@ -22,9 +22,15 @@ function Register({ onSwitchToLogin }) {
       });
       // Switch back to login page after successful registration
       onSwitchToLogin();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create account');
-    } finally {
+    }  catch (err) {
+  // Renders the exact message or validation array returned by Render
+  const serverError = err.response?.data;
+  setError(
+    typeof serverError === 'object'
+      ? JSON.stringify(serverError)
+      : serverError || 'Failed to create account'
+  );
+} finally {
       setLoading(false);
     }
   };
