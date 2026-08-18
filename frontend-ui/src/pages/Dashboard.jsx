@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { TrendingUp, PlusCircle, LogOut, DollarSign, Activity, ListOrdered, FileText, Loader2, Wallet } from 'lucide-react';
+import { TrendingUp, PlusCircle, LogOut, DollarSign, Activity, ListOrdered, FileText, Loader2, Wallet, Download } from 'lucide-react';
 
 // Common ticker to CoinGecko ID mapping
 const CRYPTO_MAP = {
@@ -133,7 +133,7 @@ function Dashboard({ onLogout }) {
     
     try {
       await axios.post(`${API_URL}/api/trades`, {
-        symbol: symbol.toUpperCase().trim(), // Clean whitespace & normalize tickers
+        symbol: symbol.toUpperCase().trim(),
         action,
         quantity: parseFloat(quantity),
         price: parseFloat(price),
@@ -154,6 +154,37 @@ function Dashboard({ onLogout }) {
     } finally {
       setFormLoading(false);
     }
+  };
+
+  // Export trades to CSV file
+  const handleExportCSV = () => {
+    if (!trades || trades.length === 0) {
+      alert("No trades available to export.");
+      return;
+    }
+
+    const headers = ["ID", "Symbol", "Action", "Quantity", "Price", "Notes", "Date"];
+
+    const rows = trades.map((t) => [
+      t.id || "",
+      t.symbol || "",
+      t.action || "",
+      t.quantity || 0,
+      t.price || 0,
+      `"${(t.notes || "").replace(/"/g, '""')}"`,
+      t.created_at ? new Date(t.created_at).toISOString() : ""
+    ]);
+
+    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `tradelink_ledger_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (loading) {
@@ -243,9 +274,17 @@ function Dashboard({ onLogout }) {
 
           {/* Trade Ledger Table */}
           <div className="bg-slate-900 border border-slate-850 rounded-2xl overflow-hidden">
-            <div className="p-5 border-b border-slate-850 flex items-center gap-2">
-              <ListOrdered className="w-4 h-4 text-emerald-400" />
-              <h3 className="font-bold text-sm uppercase tracking-wider text-slate-400">Transaction Ledger</h3>
+            <div className="p-5 border-b border-slate-850 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ListOrdered className="w-4 h-4 text-emerald-400" />
+                <h3 className="font-bold text-sm uppercase tracking-wider text-slate-400">Transaction Ledger</h3>
+              </div>
+              <button
+                onClick={handleExportCSV}
+                className="flex items-center gap-1.5 bg-slate-950 hover:bg-slate-850 border border-slate-800 text-slate-300 text-xs font-semibold px-3 py-1.5 rounded-lg transition cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-400" /> Export CSV
+              </button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
