@@ -103,5 +103,7 @@ const response = await axios.post(`${API_URL}/api/auth/login`, {
     </div>
   );
 }
-
+<p>
+  Don't have an account? <Link to="/register">Sign Up</Link>
+</p>
 export default Login;
