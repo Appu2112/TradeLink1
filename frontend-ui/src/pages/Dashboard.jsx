@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { TrendingUp, PlusCircle, LogOut, DollarSign, Activity, ListOrdered, FileText, Loader2, Wallet, Download } from 'lucide-react';
+import { TrendingUp, PlusCircle, LogOut, DollarSign, Activity, ListOrdered, FileText, Loader2, Wallet, Download, Trash2, Edit3, X, Check } from 'lucide-react';
 
-// Common ticker to CoinGecko ID mapping
 const CRYPTO_MAP = {
   BTC: 'bitcoin',
   ETH: 'ethereum',
@@ -29,10 +28,12 @@ function Dashboard({ onLogout }) {
   const [notes, setNotes] = useState('');
   const [formLoading, setFormLoading] = useState(false);
 
-  // Explicitly point to your Render backend
+  // Edit Modal State
+  const [editingTrade, setEditingTrade] = useState(null);
+  const [editForm, setEditForm] = useState({ symbol: '', action: 'BUY', quantity: '', price: '', notes: '' });
+
   const API_URL = 'https://tradelink1-43ev.onrender.com';
 
-  // Helper function to fetch live prices from CoinGecko
   const fetchLivePrices = async (symbols) => {
     try {
       const ids = symbols
@@ -61,7 +62,6 @@ function Dashboard({ onLogout }) {
     }
   };
 
-  // Fetch dashboard data and inject live market prices
   const fetchDashboardData = async () => {
     const token = localStorage.getItem('token');
     const config = { headers: { Authorization: `Bearer ${token}` } };
@@ -77,7 +77,6 @@ function Dashboard({ onLogout }) {
       const symbols = rawPortfolio.map((item) => item.symbol);
       const livePrices = await fetchLivePrices(symbols);
 
-      // Recalculate portfolio total values and floating P&L using live price
       let calculatedTotalPL = 0;
       const updatedPortfolio = rawPortfolio.map((item) => {
         const sym = item.symbol.toUpperCase();
@@ -114,17 +113,10 @@ function Dashboard({ onLogout }) {
     fetchDashboardData();
   }, []);
 
-  // Handle logging a new trade with frontend defenses
   const handleLogTrade = async (e) => {
     e.preventDefault();
-    
-    // DEFENSE GUARDRAILS
-    if (parseFloat(quantity) <= 0) {
-      alert("Position size must be greater than 0.");
-      return;
-    }
-    if (parseFloat(price) <= 0) {
-      alert("Execution price must be greater than 0.");
+    if (parseFloat(quantity) <= 0 || parseFloat(price) <= 0) {
+      alert("Quantity and price must be greater than 0.");
       return;
     }
 
@@ -149,14 +141,60 @@ function Dashboard({ onLogout }) {
       fetchDashboardData();
     } catch (err) {
       console.error('Error logging trade:', err);
-      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to log trade. Check your values.';
-      alert(errorMsg);
+      alert('Failed to log trade.');
     } finally {
       setFormLoading(false);
     }
   };
 
-  // Export trades to CSV file
+  const handleDeleteTrade = async (tradeId) => {
+    if (!window.confirm("Are you sure you want to delete this trade execution?")) return;
+
+    const token = localStorage.getItem('token');
+    try {
+      await axios.delete(`${API_URL}/api/trades/${tradeId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchDashboardData();
+    } catch (err) {
+      console.error('Error deleting trade:', err);
+      alert('Failed to delete trade.');
+    }
+  };
+
+  const handleOpenEdit = (trade) => {
+    setEditingTrade(trade);
+    setEditForm({
+      symbol: trade.symbol,
+      action: trade.action,
+      quantity: trade.quantity,
+      price: trade.price,
+      notes: trade.notes || ''
+    });
+  };
+
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem('token');
+
+    try {
+      await axios.put(`${API_URL}/api/trades/${editingTrade.id}`, {
+        ...editForm,
+        symbol: editForm.symbol.toUpperCase().trim(),
+        quantity: parseFloat(editForm.quantity),
+        price: parseFloat(editForm.price)
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setEditingTrade(null);
+      fetchDashboardData();
+    } catch (err) {
+      console.error('Error updating trade:', err);
+      alert('Failed to update trade entry.');
+    }
+  };
+
   const handleExportCSV = () => {
     if (!trades || trades.length === 0) {
       alert("No trades available to export.");
@@ -164,7 +202,6 @@ function Dashboard({ onLogout }) {
     }
 
     const headers = ["ID", "Symbol", "Action", "Quantity", "Price", "Notes", "Date"];
-
     const rows = trades.map((t) => [
       t.id || "",
       t.symbol || "",
@@ -176,7 +213,6 @@ function Dashboard({ onLogout }) {
     ]);
 
     const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -196,14 +232,14 @@ function Dashboard({ onLogout }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-6">
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-6 relative">
       {/* Header */}
       <header className="max-w-7xl mx-auto flex justify-between items-center border-b border-slate-900 pb-5 mb-8">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
             <TrendingUp className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">TradeLink <span className="text-xs font-normal text-slate-500 bg-slate-900 px-2 py-0.5 rounded border border-slate-850 ml-2">Terminal v1.1</span></h1>
+          <h1 className="text-2xl font-bold tracking-tight">TradeLink <span className="text-xs font-normal text-slate-500 bg-slate-900 px-2 py-0.5 rounded border border-slate-850 ml-2">Terminal v1.2</span></h1>
         </div>
         <button 
           onClick={onLogout}
@@ -241,7 +277,7 @@ function Dashboard({ onLogout }) {
             </div>
           </div>
 
-          {/* Current Holdings Component */}
+          {/* Current Portfolio Breakdown */}
           <div className="bg-slate-900 border border-slate-850 rounded-2xl p-5 space-y-4">
             <div className="flex items-center gap-2 border-b border-slate-850 pb-3">
               <Wallet className="w-4 h-4 text-emerald-400" />
@@ -272,7 +308,7 @@ function Dashboard({ onLogout }) {
             )}
           </div>
 
-          {/* Trade Ledger Table */}
+          {/* Transaction Ledger Table */}
           <div className="bg-slate-900 border border-slate-850 rounded-2xl overflow-hidden">
             <div className="p-5 border-b border-slate-850 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -294,21 +330,14 @@ function Dashboard({ onLogout }) {
                     <th className="p-4">Action</th>
                     <th className="p-4 text-right">Size</th>
                     <th className="p-4 text-right">Execution Price</th>
+                    <th className="p-4 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-850/60 text-sm">
                   {trades.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="p-12 text-center text-slate-500">
-                        <div className="flex flex-col items-center justify-center space-y-2">
-                          <div className="p-3 bg-slate-950 rounded-full border border-slate-850 text-slate-600">
-                            <ListOrdered className="w-5 h-5" />
-                          </div>
-                          <p className="font-semibold text-slate-400">No transactions recorded yet.</p>
-                          <p className="text-xs text-slate-600 max-w-xs">
-                            Use the execution module on the right to log your first trade terminal entry.
-                          </p>
-                        </div>
+                      <td colSpan="5" className="p-12 text-center text-slate-500">
+                        No transactions recorded yet.
                       </td>
                     </tr>
                   ) : (
@@ -322,6 +351,24 @@ function Dashboard({ onLogout }) {
                         </td>
                         <td className="p-4 text-right font-mono text-slate-300">{trade.quantity}</td>
                         <td className="p-4 text-right font-mono text-slate-300">${parseFloat(trade.price).toLocaleString()}</td>
+                        <td className="p-4 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => handleOpenEdit(trade)}
+                              className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded-lg transition"
+                              title="Edit trade"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTrade(trade.id)}
+                              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition"
+                              title="Delete trade"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -393,6 +440,78 @@ function Dashboard({ onLogout }) {
           </form>
         </div>
       </main>
+
+      {/* Edit Modal Overlay */}
+      {editingTrade && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 className="font-bold text-slate-200">Modify Trade Execution</h3>
+              <button onClick={() => setEditingTrade(null)} className="text-slate-400 hover:text-slate-100">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-slate-500 font-semibold uppercase">Ticker</label>
+                  <input 
+                    type="text" required value={editForm.symbol} onChange={e => setEditForm({ ...editForm, symbol: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500 font-semibold uppercase">Action</label>
+                  <select 
+                    value={editForm.action} onChange={e => setEditForm({ ...editForm, action: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 mt-1"
+                  >
+                    <option value="BUY">BUY</option>
+                    <option value="SELL">SELL</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-slate-500 font-semibold uppercase">Quantity</label>
+                  <input 
+                    type="number" step="any" required value={editForm.quantity} onChange={e => setEditForm({ ...editForm, quantity: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 mt-1 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500 font-semibold uppercase">Price ($)</label>
+                  <input 
+                    type="number" step="any" required value={editForm.price} onChange={e => setEditForm({ ...editForm, price: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 mt-1 font-mono"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 font-semibold uppercase">Notes</label>
+                <textarea 
+                  rows="2" value={editForm.notes} onChange={e => setEditForm({ ...editForm, notes: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 mt-1 resize-none"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button 
+                  type="button" onClick={() => setEditingTrade(null)}
+                  className="w-1/2 bg-slate-800 hover:bg-slate-750 text-slate-300 font-semibold text-sm py-2 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="w-1/2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-sm py-2 rounded-xl flex items-center justify-center gap-1"
+                >
+                  <Check className="w-4 h-4" /> Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

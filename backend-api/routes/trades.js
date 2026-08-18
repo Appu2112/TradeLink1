@@ -55,8 +55,66 @@ router.get('/', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Server error while fetching trades' });
   }
 });
+
 // ==========================================
-// 3. UPGRADED PERFORMANCE & HOLDINGS ENGINE
+// 3. EDIT / UPDATE A TRADE (Protected Route)
+// ==========================================
+router.put('/:id', authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const { symbol, action, quantity, price, notes } = req.body;
+
+  if (!symbol || !action || !quantity || !price) {
+    return res.status(400).json({ error: 'Please provide symbol, action, quantity, and price' });
+  }
+
+  try {
+    const updatedTrade = await pool.query(
+      `UPDATE trades 
+       SET symbol = $1, action = $2, quantity = $3, price = $4, notes = $5 
+       WHERE id = $6 AND user_id = $7 
+       RETURNING *`,
+      [symbol.toUpperCase(), action.toUpperCase(), quantity, price, notes, id, req.user.id]
+    );
+
+    if (updatedTrade.rowCount === 0) {
+      return res.status(404).json({ error: 'Trade not found or unauthorized' });
+    }
+
+    res.json({
+      message: 'Trade updated successfully!',
+      trade: updatedTrade.rows[0]
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error while updating trade' });
+  }
+});
+
+// ==========================================
+// 4. DELETE A TRADE (Protected Route)
+// ==========================================
+router.delete('/:id', authMiddleware, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const deletedTrade = await pool.query(
+      'DELETE FROM trades WHERE id = $1 AND user_id = $2 RETURNING *',
+      [id, req.user.id]
+    );
+
+    if (deletedTrade.rowCount === 0) {
+      return res.status(404).json({ error: 'Trade not found or unauthorized' });
+    }
+
+    res.json({ message: 'Trade deleted successfully!' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error while deleting trade' });
+  }
+});
+
+// ==========================================
+// 5. UPGRADED PERFORMANCE & HOLDINGS ENGINE
 // ==========================================
 router.get('/analytics', authMiddleware, async (req, res) => {
   try {
@@ -146,4 +204,5 @@ router.get('/analytics', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Server error while calculating advanced analytics' });
   }
 });
+
 module.exports = router;
