@@ -16,21 +16,19 @@ function Register({ onSwitchToLogin }) {
 
     try {
       await axios.post(`${API_URL}/api/auth/register`, {
-        username: email,
         email,
         password,
       });
-      // Switch back to login page after successful registration
       onSwitchToLogin();
-    }  catch (err) {
-  // Renders the exact message or validation array returned by Render
-  const serverError = err.response?.data;
-  setError(
-    typeof serverError === 'object'
-      ? JSON.stringify(serverError)
-      : serverError || 'Failed to create account'
-  );
-} finally {
+    } catch (err) {
+      // Print the exact JSON or error message returned by Render
+      const serverData = err.response?.data;
+      if (typeof serverData === 'object' && serverData !== null) {
+        setError(JSON.stringify(serverData));
+      } else {
+        setError(serverData || err.message || 'Failed to create account');
+      }
+    } finally {
       setLoading(false);
     }
   };
@@ -41,7 +39,11 @@ function Register({ onSwitchToLogin }) {
         <h2>Create Account</h2>
         <p style={{ color: '#888', marginBottom: '1rem' }}>Sign up to start trading</p>
 
-        {error && <div style={{ color: '#ff4d4d', marginBottom: '1rem' }}>{error}</div>}
+        {error && (
+          <div style={{ color: '#ff4d4d', background: '#2a1515', padding: '0.75rem', borderRadius: '4px', marginBottom: '1rem', wordBreak: 'break-word', fontSize: '0.85rem' }}>
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '1rem' }}>
