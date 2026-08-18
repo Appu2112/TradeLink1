@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Login from "./pages/login";
-import Register from './pages/Register';
+import Register from './pages/register';
 import Dashboard from './pages/Dashboard';
 
 function App() {
