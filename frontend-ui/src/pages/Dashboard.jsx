@@ -8,13 +8,11 @@ import {
   Edit3, 
   DollarSign, 
   Activity, 
-  CheckCircle2, 
-  XCircle, 
   Loader2,
   User,
   LayoutDashboard
 } from 'lucide-react';
-import Profile from './Profile'; // Import the Profile component
+import Profile from './Profile';
 
 function Dashboard({ onLogout }) {
   // Navigation State ('terminal' or 'profile')
@@ -62,9 +60,13 @@ function Dashboard({ onLogout }) {
 
     setSubmitting(true);
     const token = localStorage.getItem('token');
+
+    // Formatted payload matching trades.js requirements (symbol, action, quantity, price)
     const payload = {
-      ticker: ticker.toUpperCase(),
-      shares: parseFloat(shares),
+      symbol: ticker.toUpperCase(),
+      action: sellPrice ? 'SELL' : 'BUY',
+      quantity: parseFloat(shares),
+      price: sellPrice ? parseFloat(sellPrice) : parseFloat(buyPrice),
       buy_price: parseFloat(buyPrice),
       sell_price: sellPrice ? parseFloat(sellPrice) : null
     };
@@ -75,14 +77,16 @@ function Dashboard({ onLogout }) {
         const res = await axios.put(`${API_URL}/api/trades/${editingId}`, payload, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        setTrades(trades.map(t => t.id === editingId ? res.data : t));
+        const updatedItem = res.data.trade || res.data;
+        setTrades(trades.map(t => t.id === editingId ? updatedItem : t));
         setEditingId(null);
       } else {
         // POST Request to Add Trade
         const res = await axios.post(`${API_URL}/api/trades`, payload, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        setTrades([res.data, ...trades]);
+        const newItem = res.data.trade || res.data;
+        setTrades([newItem, ...trades]);
       }
       
       // Reset Form
@@ -101,11 +105,11 @@ function Dashboard({ onLogout }) {
   // Populate Form for Editing
   const handleEdit = (trade) => {
     setEditingId(trade.id);
-    setTicker(trade.ticker);
-    setShares(trade.shares);
-    setBuyPrice(trade.buy_price);
-    setSellPrice(trade.sell_price || '');
-    setActiveTab('terminal'); // Ensure user is on terminal to see edit form
+    setTicker(trade.ticker || trade.symbol || '');
+    setShares(trade.shares || trade.quantity || '');
+    setBuyPrice(trade.buy_price || trade.price || '');
+    setSellPrice(trade.sell_price || (trade.action === 'SELL' ? trade.price : ''));
+    setActiveTab('terminal');
   };
 
   // Cancel Edit Mode
@@ -133,17 +137,26 @@ function Dashboard({ onLogout }) {
     }
   };
 
-  // Calculate High-Level Portfolio Analytics
+  // Analytics Calculations
   const totalTrades = trades.length;
   const totalPL = trades.reduce((acc, t) => {
-    if (t.sell_price) {
-      return acc + (t.sell_price - t.buy_price) * t.shares;
+    const sell = t.sell_price || (t.action === 'SELL' ? t.price : null);
+    const buy = t.buy_price || (t.action === 'BUY' ? t.price : t.price);
+    const qty = t.shares || t.quantity || 0;
+    
+    if (sell) {
+      return acc + (parseFloat(sell) - parseFloat(buy)) * parseFloat(qty);
     }
     return acc;
   }, 0);
 
-  const winningTrades = trades.filter(t => t.sell_price && t.sell_price > t.buy_price).length;
-  const closedTrades = trades.filter(t => t.sell_price).length;
+  const closedTrades = trades.filter(t => t.sell_price || t.action === 'SELL').length;
+  const winningTrades = trades.filter(t => {
+    const sell = t.sell_price || (t.action === 'SELL' ? t.price : null);
+    const buy = t.buy_price || t.price;
+    return sell && parseFloat(sell) > parseFloat(buy);
+  }).length;
+  
   const winRate = closedTrades > 0 ? ((winningTrades / closedTrades) * 100).toFixed(0) : 0;
 
   return (
@@ -158,7 +171,7 @@ function Dashboard({ onLogout }) {
             <h1 className="text-2xl font-bold tracking-tight">TradeLink</h1>
           </div>
 
-          {/* Tab Switcher */}
+          {/* Navigation Bar */}
           <nav className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
             <button
               onClick={() => setActiveTab('terminal')}
@@ -193,12 +206,12 @@ function Dashboard({ onLogout }) {
         </button>
       </header>
 
-      {/* Conditionally Render Terminal or Profile */}
+      {/* Switch between Terminal and Profile */}
       {activeTab === 'profile' ? (
         <Profile />
       ) : (
         <main className="max-w-7xl mx-auto space-y-8">
-          {/* Top Analytics Cards */}
+          {/* Portfolio Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-slate-900 border border-slate-850 p-5 rounded-2xl flex items-center justify-between">
               <div>
@@ -234,7 +247,7 @@ function Dashboard({ onLogout }) {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left Column: Form */}
+            {/* Left Form Column */}
             <div className="bg-slate-900 border border-slate-850 p-6 rounded-2xl space-y-4 h-fit">
               <div className="flex justify-between items-center border-b border-slate-800 pb-3">
                 <h2 className="text-base font-bold text-slate-200">
@@ -252,7 +265,7 @@ function Dashboard({ onLogout }) {
 
               <form onSubmit={handleSaveTrade} className="space-y-4">
                 <div>
-                  <label className="text-xs font-semibold text-slate-400 uppercase">Ticker</label>
+                  <label className="text-xs font-semibold text-slate-400 uppercase">Ticker / Symbol</label>
                   <input
                     type="text"
                     placeholder="AAPL, TSLA, BTC"
@@ -317,7 +330,7 @@ function Dashboard({ onLogout }) {
               </form>
             </div>
 
-            {/* Right Column: Ledger Table */}
+            {/* Right Table Column */}
             <div className="lg:col-span-2 bg-slate-900 border border-slate-850 p-6 rounded-2xl space-y-4">
               <h2 className="text-base font-bold text-slate-200 border-b border-slate-800 pb-3">Trade Ledger</h2>
 
@@ -344,14 +357,19 @@ function Dashboard({ onLogout }) {
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
                       {trades.map((t) => {
-                        const pl = t.sell_price ? (t.sell_price - t.buy_price) * t.shares : null;
+                        const sym = t.ticker || t.symbol;
+                        const qty = t.shares || t.quantity;
+                        const buy = t.buy_price || t.price;
+                        const sell = t.sell_price || (t.action === 'SELL' ? t.price : null);
+                        const pl = sell ? (parseFloat(sell) - parseFloat(buy)) * parseFloat(qty) : null;
+
                         return (
                           <tr key={t.id} className="hover:bg-slate-850/50 transition">
-                            <td className="py-3 px-4 font-bold text-slate-100 uppercase">{t.ticker}</td>
-                            <td className="py-3 px-4">{t.shares}</td>
-                            <td className="py-3 px-4">${parseFloat(t.buy_price).toFixed(2)}</td>
+                            <td className="py-3 px-4 font-bold text-slate-100 uppercase">{sym}</td>
+                            <td className="py-3 px-4">{qty}</td>
+                            <td className="py-3 px-4">${parseFloat(buy).toFixed(2)}</td>
                             <td className="py-3 px-4">
-                              {t.sell_price ? `$${parseFloat(t.sell_price).toFixed(2)}` : (
+                              {sell ? `$${parseFloat(sell).toFixed(2)}` : (
                                 <span className="text-xs text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-md">OPEN</span>
                               )}
                             </td>
