@@ -16,6 +16,7 @@ function Register({ onSwitchToLogin }) {
 
     try {
       await axios.post(`${API_URL}/api/auth/register`, {
+        username: email,
         email,
         password,
       });
