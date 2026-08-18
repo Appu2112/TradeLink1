@@ -15,6 +15,9 @@ function Dashboard({ onLogout }) {
   const [notes, setNotes] = useState('');
   const [formLoading, setFormLoading] = useState(false);
 
+  // Dynamic API URL for Vercel/Production
+  const API_URL = import.meta.env.VITE_API_URL || 'https://tradelink1-43ev.onrender.com';
+
   // Fetch dashboard data
   const fetchDashboardData = async () => {
     const token = localStorage.getItem('token');
@@ -23,8 +26,8 @@ function Dashboard({ onLogout }) {
     try {
       setLoading(true);
       const [statsRes, tradesRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/trades/analytics', config),
-        axios.get('http://localhost:5000/api/trades', config)
+        axios.get(`${API_URL}/api/trades/analytics`, config),
+        axios.get(`${API_URL}/api/trades`, config)
       ]);
       setStats(statsRes.data);
       setTrades(tradesRes.data);
@@ -38,11 +41,12 @@ function Dashboard({ onLogout }) {
   useEffect(() => {
     fetchDashboardData();
   }, []);
-// Handle logging a new trade with frontend defenses
+
+  // Handle logging a new trade with frontend defenses
   const handleLogTrade = async (e) => {
     e.preventDefault();
     
-    // DEFENSE GAURDRAILS
+    // DEFENSE GUARDRAILS
     if (parseFloat(quantity) <= 0) {
       alert("Position size must be greater than 0.");
       return;
@@ -56,7 +60,7 @@ function Dashboard({ onLogout }) {
     const token = localStorage.getItem('token');
     
     try {
-      await axios.post('http://localhost:5000/api/trades', {
+      await axios.post(`${API_URL}/api/trades`, {
         symbol: symbol.toUpperCase().trim(), // Clean whitespace & normalize tickers
         action,
         quantity: parseFloat(quantity),
@@ -73,12 +77,12 @@ function Dashboard({ onLogout }) {
       fetchDashboardData();
     } catch (err) {
       console.error('Error logging trade:', err);
-      alert('Failed to log trade. Check your values.');
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to log trade. Check your values.';
+      alert(errorMsg);
     } finally {
       setFormLoading(false);
     }
   };
-  
 
   if (loading) {
     return (
@@ -115,7 +119,7 @@ function Dashboard({ onLogout }) {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Live Floating P&L</p>
                 <h3 className={`text-2xl font-black mt-1 ${stats.totalPL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                  {stats.totalPL >= 0 ? '+' : ''}${stats.totalPL.toLocaleString()}
+                  {stats.totalPL >= 0 ? '+' : ''}${stats.totalPL ? stats.totalPL.toLocaleString() : '0'}
                 </h3>
               </div>
               <div className={`p-3 rounded-xl ${stats.totalPL >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
@@ -126,7 +130,7 @@ function Dashboard({ onLogout }) {
             <div className="bg-slate-900 border border-slate-850 p-5 rounded-2xl flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Operations</p>
-                <h3 className="text-2xl font-black text-slate-100 mt-1">{stats.totalTrades}</h3>
+                <h3 className="text-2xl font-black text-slate-100 mt-1">{stats.totalTrades || 0}</h3>
               </div>
               <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl">
                 <Activity className="w-5 h-5" />
@@ -134,14 +138,14 @@ function Dashboard({ onLogout }) {
             </div>
           </div>
 
-          {/* NEW: Current Holdings Component */}
+          {/* Current Holdings Component */}
           <div className="bg-slate-900 border border-slate-850 rounded-2xl p-5 space-y-4">
             <div className="flex items-center gap-2 border-b border-slate-850 pb-3">
               <Wallet className="w-4 h-4 text-emerald-400" />
               <h3 className="font-bold text-sm uppercase tracking-wider text-slate-400">Current Portfolio Breakdown</h3>
             </div>
             
-            {stats.portfolio.length === 0 ? (
+            {!stats.portfolio || stats.portfolio.length === 0 ? (
               <p className="text-sm text-slate-500 text-center py-4">No active holdings. Log a BUY trade to populate assets.</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -149,15 +153,15 @@ function Dashboard({ onLogout }) {
                   <div key={asset.symbol} className="bg-slate-950 border border-slate-850/80 p-4 rounded-xl space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="font-extrabold text-base text-slate-200 tracking-tight">{asset.symbol}</span>
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded ${parseFloat(asset.unrealizedPL) >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
-                        {parseFloat(asset.unrealizedPL) >= 0 ? '+' : ''}${parseFloat(asset.unrealizedPL).toLocaleString()}
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded ${parseFloat(asset.unrealizedPL || 0) >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                        {parseFloat(asset.unrealizedPL || 0) >= 0 ? '+' : ''}${parseFloat(asset.unrealizedPL || 0).toLocaleString()}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-y-2 text-xs text-slate-400 border-t border-slate-900/50 pt-2">
                       <div>Holdings: <span className="font-mono text-slate-200 block mt-0.5">{asset.currentHoldings}</span></div>
-                      <div>Total Value: <span className="font-mono text-slate-200 block mt-0.5">${parseFloat(asset.totalValue).toLocaleString()}</span></div>
-                      <div>Avg Buy: <span className="font-mono text-slate-50 block mt-0.5">${parseFloat(asset.avgBuyPrice).toLocaleString()}</span></div>
-                      <div>Live Price: <span className="font-mono text-slate-400 block mt-0.5">${parseFloat(asset.currentMarketPrice).toLocaleString()}</span></div>
+                      <div>Total Value: <span className="font-mono text-slate-200 block mt-0.5">${parseFloat(asset.totalValue || 0).toLocaleString()}</span></div>
+                      <div>Avg Buy: <span className="font-mono text-slate-50 block mt-0.5">${parseFloat(asset.avgBuyPrice || 0).toLocaleString()}</span></div>
+                      <div>Live Price: <span className="font-mono text-slate-400 block mt-0.5">${parseFloat(asset.currentMarketPrice || 0).toLocaleString()}</span></div>
                     </div>
                   </div>
                 ))}
@@ -182,35 +186,35 @@ function Dashboard({ onLogout }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-850/60 text-sm">
-  {trades.length === 0 ? (
-    <tr>
-      <td colSpan="4" className="p-12 text-center text-slate-500">
-        <div className="flex flex-col items-center justify-center space-y-2">
-          <div className="p-3 bg-slate-950 rounded-full border border-slate-850 text-slate-600">
-            <ListOrdered className="w-5 h-5" />
-          </div>
-          <p className="font-semibold text-slate-450">No transactions recorded yet.</p>
-          <p className="text-xs text-slate-600 max-w-xs">
-            Use the execution module on the right to log your first trade terminal entry.
-          </p>
-        </div>
-      </td>
-    </tr>
-  ) : (
-    trades.map((trade) => (
-      <tr key={trade.id} className="hover:bg-slate-950/30 transition">
-        <td className="p-4 font-bold text-slate-200">{trade.symbol}</td>
-        <td className="p-4">
-          <span className={`px-2 py-0.5 rounded text-xs font-bold border ${trade.action === 'BUY' ? 'bg-emerald-500/5 text-emerald-400 border-emerald-500/10' : 'bg-rose-500/5 text-rose-400 border-rose-500/10'}`}>
-            {trade.action}
-          </span>
-        </td>
-        <td className="p-4 text-right font-mono text-slate-300">{trade.quantity}</td>
-        <td className="p-4 text-right font-mono text-slate-300">${parseFloat(trade.price).toLocaleString()}</td>
-      </tr>
-    ))
-  )}
-</tbody>
+                  {trades.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" className="p-12 text-center text-slate-500">
+                        <div className="flex flex-col items-center justify-center space-y-2">
+                          <div className="p-3 bg-slate-950 rounded-full border border-slate-850 text-slate-600">
+                            <ListOrdered className="w-5 h-5" />
+                          </div>
+                          <p className="font-semibold text-slate-400">No transactions recorded yet.</p>
+                          <p className="text-xs text-slate-600 max-w-xs">
+                            Use the execution module on the right to log your first trade terminal entry.
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    trades.map((trade) => (
+                      <tr key={trade.id} className="hover:bg-slate-950/30 transition">
+                        <td className="p-4 font-bold text-slate-200">{trade.symbol}</td>
+                        <td className="p-4">
+                          <span className={`px-2 py-0.5 rounded text-xs font-bold border ${trade.action === 'BUY' ? 'bg-emerald-500/5 text-emerald-400 border-emerald-500/10' : 'bg-rose-500/5 text-rose-400 border-rose-500/10'}`}>
+                            {trade.action}
+                          </span>
+                        </td>
+                        <td className="p-4 text-right font-mono text-slate-300">{trade.quantity}</td>
+                        <td className="p-4 text-right font-mono text-slate-300">${parseFloat(trade.price).toLocaleString()}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
               </table>
             </div>
           </div>
