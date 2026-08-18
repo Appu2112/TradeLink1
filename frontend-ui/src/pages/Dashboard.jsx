@@ -16,7 +16,8 @@ function Dashboard({ onLogout }) {
   const [formLoading, setFormLoading] = useState(false);
 
   // Dynamic API URL for Vercel/Production
-  const API_URL = import.meta.env.VITE_API_URL || 'https://tradelink1-43ev.onrender.com';
+ // Explicitly point to your Render backend
+const API_URL = 'https://tradelink1-43ev.onrender.com';
 
   // Fetch dashboard data
   const fetchDashboardData = async () => {
