@@ -2,6 +2,20 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { TrendingUp, PlusCircle, LogOut, DollarSign, Activity, ListOrdered, FileText, Loader2, Wallet } from 'lucide-react';
 
+// Common ticker to CoinGecko ID mapping
+const CRYPTO_MAP = {
+  BTC: 'bitcoin',
+  ETH: 'ethereum',
+  SOL: 'solana',
+  DOGE: 'dogecoin',
+  ADA: 'cardano',
+  XRP: 'ripple',
+  BNB: 'binancecoin',
+  AVAX: 'avalanche-2',
+  DOT: 'polkadot',
+  LINK: 'chainlink'
+};
+
 function Dashboard({ onLogout }) {
   const [stats, setStats] = useState({ totalTrades: 0, totalPL: 0, portfolio: [] });
   const [trades, setTrades] = useState([]);
@@ -15,11 +29,39 @@ function Dashboard({ onLogout }) {
   const [notes, setNotes] = useState('');
   const [formLoading, setFormLoading] = useState(false);
 
-  // Dynamic API URL for Vercel/Production
- // Explicitly point to your Render backend
-const API_URL = 'https://tradelink1-43ev.onrender.com';
+  // Explicitly point to your Render backend
+  const API_URL = 'https://tradelink1-43ev.onrender.com';
 
-  // Fetch dashboard data
+  // Helper function to fetch live prices from CoinGecko
+  const fetchLivePrices = async (symbols) => {
+    try {
+      const ids = symbols
+        .map((s) => CRYPTO_MAP[s.toUpperCase()])
+        .filter(Boolean)
+        .join(',');
+
+      if (!ids) return {};
+
+      const res = await axios.get(
+        `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`
+      );
+
+      const priceMap = {};
+      symbols.forEach((sym) => {
+        const geckoId = CRYPTO_MAP[sym.toUpperCase()];
+        if (geckoId && res.data[geckoId]) {
+          priceMap[sym.toUpperCase()] = res.data[geckoId].usd;
+        }
+      });
+
+      return priceMap;
+    } catch (err) {
+      console.error('Failed to fetch live prices:', err);
+      return {};
+    }
+  };
+
+  // Fetch dashboard data and inject live market prices
   const fetchDashboardData = async () => {
     const token = localStorage.getItem('token');
     const config = { headers: { Authorization: `Bearer ${token}` } };
@@ -30,7 +72,36 @@ const API_URL = 'https://tradelink1-43ev.onrender.com';
         axios.get(`${API_URL}/api/trades/analytics`, config),
         axios.get(`${API_URL}/api/trades`, config)
       ]);
-      setStats(statsRes.data);
+
+      const rawPortfolio = statsRes.data.portfolio || [];
+      const symbols = rawPortfolio.map((item) => item.symbol);
+      const livePrices = await fetchLivePrices(symbols);
+
+      // Recalculate portfolio total values and floating P&L using live price
+      let calculatedTotalPL = 0;
+      const updatedPortfolio = rawPortfolio.map((item) => {
+        const sym = item.symbol.toUpperCase();
+        const livePrice = livePrices[sym] || parseFloat(item.currentMarketPrice || item.avgBuyPrice || 0);
+        const holdings = parseFloat(item.currentHoldings || 0);
+        const avgBuy = parseFloat(item.avgBuyPrice || 0);
+
+        const totalValue = holdings * livePrice;
+        const unrealizedPL = (livePrice - avgBuy) * holdings;
+        calculatedTotalPL += unrealizedPL;
+
+        return {
+          ...item,
+          currentMarketPrice: livePrice,
+          totalValue,
+          unrealizedPL
+        };
+      });
+
+      setStats({
+        ...statsRes.data,
+        totalPL: calculatedTotalPL,
+        portfolio: updatedPortfolio
+      });
       setTrades(tradesRes.data);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -120,7 +191,7 @@ const API_URL = 'https://tradelink1-43ev.onrender.com';
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Live Floating P&L</p>
                 <h3 className={`text-2xl font-black mt-1 ${stats.totalPL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                  {stats.totalPL >= 0 ? '+' : ''}${stats.totalPL ? stats.totalPL.toLocaleString() : '0'}
+                  {stats.totalPL >= 0 ? '+' : ''}${stats.totalPL ? stats.totalPL.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
                 </h3>
               </div>
               <div className={`p-3 rounded-xl ${stats.totalPL >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
@@ -155,14 +226,14 @@ const API_URL = 'https://tradelink1-43ev.onrender.com';
                     <div className="flex justify-between items-center">
                       <span className="font-extrabold text-base text-slate-200 tracking-tight">{asset.symbol}</span>
                       <span className={`text-xs font-bold px-2 py-0.5 rounded ${parseFloat(asset.unrealizedPL || 0) >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
-                        {parseFloat(asset.unrealizedPL || 0) >= 0 ? '+' : ''}${parseFloat(asset.unrealizedPL || 0).toLocaleString()}
+                        {parseFloat(asset.unrealizedPL || 0) >= 0 ? '+' : ''}${parseFloat(asset.unrealizedPL || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-y-2 text-xs text-slate-400 border-t border-slate-900/50 pt-2">
                       <div>Holdings: <span className="font-mono text-slate-200 block mt-0.5">{asset.currentHoldings}</span></div>
-                      <div>Total Value: <span className="font-mono text-slate-200 block mt-0.5">${parseFloat(asset.totalValue || 0).toLocaleString()}</span></div>
-                      <div>Avg Buy: <span className="font-mono text-slate-50 block mt-0.5">${parseFloat(asset.avgBuyPrice || 0).toLocaleString()}</span></div>
-                      <div>Live Price: <span className="font-mono text-slate-400 block mt-0.5">${parseFloat(asset.currentMarketPrice || 0).toLocaleString()}</span></div>
+                      <div>Total Value: <span className="font-mono text-slate-200 block mt-0.5">${parseFloat(asset.totalValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+                      <div>Avg Buy: <span className="font-mono text-slate-50 block mt-0.5">${parseFloat(asset.avgBuyPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+                      <div>Live Price: <span className="font-mono text-slate-400 block mt-0.5">${parseFloat(asset.currentMarketPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
                     </div>
                   </div>
                 ))}
@@ -233,7 +304,7 @@ const API_URL = 'https://tradelink1-43ev.onrender.com';
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-500 uppercase">Ticker Symbol</label>
                 <input 
-                  type="text" required placeholder="BTC, AAPL" value={symbol} onChange={e => setSymbol(e.target.value)}
+                  type="text" required placeholder="BTC, ETH" value={symbol} onChange={e => setSymbol(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
                 />
               </div>
