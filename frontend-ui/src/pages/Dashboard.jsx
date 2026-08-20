@@ -18,7 +18,7 @@ import {
 import Profile from './Profile';
 import PortfolioCharts from '../components/PortfolioCharts';
 import LedgerToolbar from '../components/LedgerToolbar';
-import TagPerformance from './TagPerformance';
+import TagPerformance from '../TagPerformance';
 
 function Dashboard({ onLogout }) {
   const [activeTab, setActiveTab] = useState('terminal');
