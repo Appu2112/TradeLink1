@@ -5,7 +5,7 @@ import {
   PiggyBank, Droplets, BarChart2, X, Loader2 
 } from 'lucide-react';
 
-export default function LandingPage({ onLoginSuccess }) {
+export default function LandingPage({ onLoginSuccess, onSwitchToLogin, onSwitchToRegister }) {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [loginType, setLoginType] = useState('mobile');
@@ -23,10 +23,8 @@ export default function LandingPage({ onLoginSuccess }) {
 
   const API_URL = import.meta.env.VITE_API_URL || 'https://tradelink1-43ev.onrender.com';
 
-  // Fetch real live top stock data dynamically
   useEffect(() => {
     const fetchLiveStocks = async () => {
-      // Tickers for top Indian liquid stocks on NSE
       const tickers = [
         'RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'ICICIBANK.NS',
         'SBIN.NS', 'BHARTIARTL.NS', 'ITC.NS', 'TATAMOTORS.NS', 'AXISBANK.NS',
@@ -35,7 +33,6 @@ export default function LandingPage({ onLoginSuccess }) {
       ];
 
       try {
-        // Attempt 1: Fetch from Yahoo Finance live endpoint directly
         const symbolList = tickers.join(',');
         const response = await axios.get(
           `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbolList}`
@@ -59,7 +56,6 @@ export default function LandingPage({ onLoginSuccess }) {
       }
 
       try {
-        // Attempt 2: Fallback to dynamic public JSON proxy for Indian equities
         const fallbackRes = await axios.get(
           `https://api.allorigins.win/raw?url=${encodeURIComponent(
             `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${tickers.join(',')}`
@@ -79,7 +75,6 @@ export default function LandingPage({ onLoginSuccess }) {
           return;
         }
       } catch (fallbackErr) {
-        console.warn('Using live stock structure fallback.');
         setTopStocks(
           tickers.map((t) => ({
             symbol: t.replace('.NS', ''),
@@ -95,16 +90,24 @@ export default function LandingPage({ onLoginSuccess }) {
     fetchLiveStocks();
   }, []);
 
-  const openLoginModal = () => {
-    setIsRegisterMode(false);
-    setError('');
-    setIsAuthModalOpen(true);
+  const openLogin = () => {
+    if (onSwitchToLogin) {
+      onSwitchToLogin();
+    } else {
+      setIsRegisterMode(false);
+      setError('');
+      setIsAuthModalOpen(true);
+    }
   };
 
-  const openRegisterModal = () => {
-    setIsRegisterMode(true);
-    setError('');
-    setIsAuthModalOpen(true);
+  const openRegister = () => {
+    if (onSwitchToRegister) {
+      onSwitchToRegister();
+    } else {
+      setIsRegisterMode(true);
+      setError('');
+      setIsAuthModalOpen(true);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -176,13 +179,13 @@ export default function LandingPage({ onLoginSuccess }) {
         </div>
         <div className="flex items-center gap-3">
           <button 
-            onClick={openRegisterModal}
+            onClick={openRegister}
             className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-4 py-2 rounded-md transition cursor-pointer"
           >
             Create Account
           </button>
           <button 
-            onClick={openLoginModal}
+            onClick={openLogin}
             className="border border-gray-700 hover:bg-gray-800 text-gray-200 text-xs font-semibold px-4 py-2 rounded-md transition cursor-pointer"
           >
             Login
@@ -214,7 +217,7 @@ export default function LandingPage({ onLoginSuccess }) {
                   className="flex-1 bg-[#101216] border border-gray-700/60 rounded-lg px-4 py-2 text-sm text-gray-200 focus:outline-none focus:border-blue-500"
                 />
                 <button 
-                  onClick={openRegisterModal}
+                  onClick={openRegister}
                   className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-5 py-2 rounded-lg transition whitespace-nowrap cursor-pointer"
                 >
                   Get Started
@@ -246,7 +249,7 @@ export default function LandingPage({ onLoginSuccess }) {
             </div>
             <div className="mt-8 flex justify-center">
               <button 
-                onClick={openRegisterModal}
+                onClick={openRegister}
                 className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition cursor-pointer"
               >
                 Open Demat Account
@@ -314,11 +317,10 @@ export default function LandingPage({ onLoginSuccess }) {
 
       </main>
 
-      {/* Auth Modal */}
+      {/* Fallback Auth Modal */}
       {isAuthModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="relative w-full max-w-md bg-[#12141a] border border-gray-800 rounded-2xl p-8 shadow-2xl text-white">
-            
             <button 
               onClick={() => setIsAuthModalOpen(false)} 
               className="absolute top-4 right-4 text-gray-400 hover:text-white transition cursor-pointer"
@@ -469,7 +471,6 @@ export default function LandingPage({ onLoginSuccess }) {
                 </div>
               </div>
             )}
-
           </div>
         </div>
       )}
