@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import LandingPage from './components/LandingPage';
+import LandingPage from './pages/LandingPage';
 import Login from "./pages/login";
 import Register from './pages/register';
 import Dashboard from './pages/Dashboard';
