@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { Loader2 } from 'lucide-react';
 
-function Register({ onSwitchToLogin }) {
+function Register({ onRegisterSuccess, onSwitchToLogin }) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  const API_URL = import.meta.env.VITE_API_URL || 'https://tradelink1-43ev.onrender.com';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,84 +15,97 @@ function Register({ onSwitchToLogin }) {
     setLoading(true);
 
     try {
+      const API_URL = import.meta.env.VITE_API_URL || 'https://tradelink1-43ev.onrender.com';
+
       await axios.post(`${API_URL}/api/auth/register`, {
         username,
         email,
         password,
       });
-      // Switch back to login page on success
-      onSwitchToLogin();
+
+      if (onRegisterSuccess) onRegisterSuccess();
     } catch (err) {
-      setError(err.response?.data?.error || err.response?.data?.message || 'Failed to create account');
+      setError(err.response?.data?.error || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0b0e14' }}>
-      <div style={{ background: '#121824', padding: '2rem', borderRadius: '8px', width: '100%', maxWidth: '400px', color: '#fff' }}>
-        <h2>Create Account</h2>
-        <p style={{ color: '#888', marginBottom: '1rem' }}>Sign up to start trading</p>
+    <div className="min-h-screen bg-[#0d0f14] text-white flex flex-col items-center justify-center p-4 font-sans">
+      <div className="w-full max-w-md bg-[#12141a] border border-gray-800/80 p-8 rounded-2xl shadow-2xl space-y-6">
+        
+        {/* Header */}
+        <div>
+          <h2 className="text-xl font-bold tracking-tight text-white">Create Account</h2>
+          <p className="text-xs text-gray-400 mt-1">Sign up to start trading</p>
+        </div>
 
+        {/* Error Alert */}
         {error && (
-          <div style={{ color: '#ff4d4d', background: '#2a1515', padding: '0.75rem', borderRadius: '4px', marginBottom: '1rem', fontSize: '0.85rem' }}>
+          <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-3 rounded-lg text-xs text-center">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Username</label>
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-xs text-gray-300 font-medium">Username</label>
             <input
               type="text"
+              required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              required
-              style={{ width: '100%', padding: '0.5rem', background: '#1a2332', border: '1px solid #2a364f', color: '#fff', borderRadius: '4px' }}
+              className="w-full bg-[#181b22] border border-gray-700/80 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition"
             />
           </div>
 
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Email</label>
+          <div className="space-y-1.5">
+            <label className="text-xs text-gray-300 font-medium">Email</label>
             <input
               type="email"
+              required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required
-              style={{ width: '100%', padding: '0.5rem', background: '#1a2332', border: '1px solid #2a364f', color: '#fff', borderRadius: '4px' }}
+              className="w-full bg-[#181b22] border border-gray-700/80 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition"
             />
           </div>
 
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Password</label>
+          <div className="space-y-1.5">
+            <label className="text-xs text-gray-300 font-medium">Password</label>
             <input
               type="password"
+              required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required
-              style={{ width: '100%', padding: '0.5rem', background: '#1a2332', border: '1px solid #2a364f', color: '#fff', borderRadius: '4px' }}
+              className="w-full bg-[#181b22] border border-gray-700/80 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            style={{ width: '100%', padding: '0.75rem', background: '#00c805', border: 'none', color: '#000', fontWeight: 'bold', borderRadius: '4px', cursor: 'pointer' }}
+            className="w-full bg-[#00e611] hover:bg-[#00c80e] text-black font-bold text-sm py-3 rounded-lg transition cursor-pointer flex items-center justify-center gap-2 mt-2"
           >
-            {loading ? 'Creating Account...' : 'Sign Up'}
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Sign Up'}
           </button>
         </form>
 
-        <p style={{ marginTop: '1rem', textAlign: 'center', color: '#888' }}>
-          Already have an account?{' '}
-          <button
-            onClick={onSwitchToLogin}
-            style={{ background: 'none', border: 'none', color: '#00c805', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
-          >
-            Sign In
-          </button>
-        </p>
+        {/* Footer Toggle */}
+        <div className="pt-2 text-center">
+          <p className="text-xs text-gray-400">
+            Already have an account?{' '}
+            <button
+              type="button"
+              onClick={onSwitchToLogin}
+              className="text-[#00e611] hover:underline font-medium focus:outline-none cursor-pointer"
+            >
+              Sign In
+            </button>
+          </p>
+        </div>
+
       </div>
     </div>
   );

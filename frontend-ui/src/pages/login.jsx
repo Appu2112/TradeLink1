@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Loader2 } from 'lucide-react';
 
 function Login({ onLoginSuccess, onSwitchToRegister }) {
-  const [loginType, setLoginType] = useState('mobile'); // 'mobile' or 'client'
+  const [loginType, setLoginType] = useState('mobile');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,16 +17,12 @@ function Login({ onLoginSuccess, onSwitchToRegister }) {
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'https://tradelink1-43ev.onrender.com';
 
-      // Send payload with the identifier (email/mobile/client ID) and password
       const response = await axios.post(`${API_URL}/api/auth/login`, {
         email: identifier,
-        password: password,
+        password,
       });
 
-      // Save JWT token
       localStorage.setItem('token', response.data.token);
-      
-      // Notify parent component
       if (onLoginSuccess) onLoginSuccess();
     } catch (err) {
       setError(err.response?.data?.error || 'Something went wrong. Please try again.');
@@ -36,21 +32,9 @@ function Login({ onLoginSuccess, onSwitchToRegister }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d0f14] text-white flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md bg-[#12141a] border border-gray-800 p-8 rounded-2xl shadow-2xl space-y-6">
+    <div className="min-h-screen bg-[#0d0f14] text-white flex flex-col items-center justify-center p-4 font-sans">
+      <div className="w-full max-w-md bg-[#12141a] border border-gray-800/80 p-8 rounded-2xl shadow-2xl space-y-6">
         
-        {/* Logo & Header */}
-        <div>
-          <div className="flex items-center gap-2 font-bold text-xl text-blue-500 tracking-wide">
-            <span className="text-2xl">▲</span> TradeLink
-          </div>
-          <div className="mt-4 border-b border-dashed border-gray-800" />
-        </div>
-
-        <h2 className="text-xl font-bold tracking-tight text-white">
-          Welcome to India’s fastest investment platform!
-        </h2>
-
         {/* Error Alert */}
         {error && (
           <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-3 rounded-lg text-xs text-center">
@@ -58,7 +42,7 @@ function Login({ onLoginSuccess, onSwitchToRegister }) {
           </div>
         )}
 
-        {/* Option Radio Controls */}
+        {/* Radio Option Controls */}
         <div className="flex items-center gap-6 text-xs font-medium text-gray-300">
           <label className="flex items-center gap-2 cursor-pointer">
             <input 
@@ -87,7 +71,7 @@ function Login({ onLoginSuccess, onSwitchToRegister }) {
           </label>
         </div>
 
-        {/* Login Form */}
+        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <input
@@ -114,7 +98,7 @@ function Login({ onLoginSuccess, onSwitchToRegister }) {
           <button
             type="submit"
             disabled={loading || !identifier || !password}
-            className="w-full bg-[#272b35] hover:bg-blue-600 disabled:opacity-50 disabled:hover:bg-[#272b35] text-white font-bold text-xs tracking-wider uppercase py-3 rounded-lg transition cursor-pointer flex items-center justify-center gap-2"
+            className="w-full bg-[#272b35] hover:bg-blue-600 disabled:opacity-50 text-white font-bold text-xs tracking-wider uppercase py-3 rounded-lg transition cursor-pointer flex items-center justify-center gap-2"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'PROCEED'}
           </button>

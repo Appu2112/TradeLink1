@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import LandingPage from './components/LandingPage';
 import Login from "./pages/login";
 import Register from './pages/register';
 import Dashboard from './pages/Dashboard';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentView, setCurrentView] = useState('login'); // 'login' or 'register'
+  const [currentView, setCurrentView] = useState('landing'); 
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     setIsAuthenticated(false);
-    setCurrentView('login');
+    setCurrentView('landing');
   };
 
   useEffect(() => {
@@ -45,13 +46,24 @@ function App() {
     return <Dashboard onLogout={handleLogout} />;
   }
 
-  // 2. Show Register page if user clicked "Sign Up"
+  // 2. Show Register page
   if (currentView === 'register') {
     return <Register onSwitchToLogin={() => setCurrentView('login')} />;
   }
 
-  // 3. Default: Show Login page
-  return <Login onLoginSuccess={handleLoginSuccess} onSwitchToRegister={() => setCurrentView('register')} />;
+  // 3. Show standalone Login page
+  if (currentView === 'login') {
+    return <Login onLoginSuccess={handleLoginSuccess} onSwitchToRegister={() => setCurrentView('register')} />;
+  }
+
+  // 4. Default view: Landing Page
+  return (
+    <LandingPage 
+      onLoginSuccess={handleLoginSuccess} 
+      onSwitchToLogin={() => setCurrentView('login')}
+      onSwitchToRegister={() => setCurrentView('register')}
+    />
+  );
 }
 
 export default App;
